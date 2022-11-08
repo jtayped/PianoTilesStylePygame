@@ -15,8 +15,9 @@ class Level:
 
         self.running = True
 
+        self.tilesInX = 4
         self.tileList = []
-        self.tileSize = [int(WIDTH/4), HEIGHT/7]
+        self.tileSize = [int(WIDTH/self.tilesInX), HEIGHT/7]
         self.tileBuffer = HEIGHT/self.tileSize[1]*2.5
 
         self.tileSpeed = 7
@@ -24,8 +25,10 @@ class Level:
         self.inLineCounter = 0
         self.maxInLine = 3
 
-        pos = [2*self.tileSize[0], -self.tileSize[1]]
+        pos = [random.randint(0, self.tilesInX-1)*self.tileSize[0], -self.tileSize[1]]
         self.tileList.append(Tile(self.screen, pos, self.tileSize, self.tileColor))
+
+        self.isDead = False
     
     def generateTile(self):
         pos = []
@@ -50,6 +53,12 @@ class Level:
         pos.append(self.tileList[-1].rect.y - self.tileSize[1])
         self.tileList.append(Tile(self.screen, pos, self.tileSize, self.tileColor))
 
+    def deathAnimation(self):
+        if self.isDead:
+            self.counter += 1
+            if self.counter > FPS/1.5:
+                self.__init__()
+
     def tileUpdate(self):
         for tile in self.tileList:
             tile.update(self.tileSpeed)
@@ -58,7 +67,10 @@ class Level:
                 self.tileList.remove(tile)
             
             if tile.dead():
-                self.__init__()
+                self.tileSpeed = 0
+                self.counter = 0
+                tile.color = 'red'
+                self.isDead = True
 
     def tileHandler(self):
         self.tileUpdate()
@@ -74,15 +86,19 @@ class Level:
             if event.type == pygame.MOUSEBUTTONUP:
                 self.mouseClick = pygame.mouse.get_pos()  
 
+                clickedOnTile = False
                 for tile in self.tileList:
                     if tile.clicked(self.mouseClick):
+                        clickedOnTile = True
                         tile.color = 'green'
 
                         tileNextIndex = 1
                         while self.tileList[self.tileList.index(tile)+tileNextIndex].rect.x == tile.rect.x:
                             self.tileList[self.tileList.index(tile)+tileNextIndex].color = 'green'
                             tileNextIndex += 1
-                            
+                
+                if not clickedOnTile:
+                    self.__init__()
 
     def update(self):
         self.clock.tick(FPS)
@@ -94,6 +110,7 @@ class Level:
         ########################################
 
         self.tileHandler()
+        self.deathAnimation()
 
         ########################################
 
