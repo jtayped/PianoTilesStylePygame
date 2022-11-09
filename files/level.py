@@ -20,57 +20,40 @@ class Level:
         self.tileSize = [int(WIDTH/self.tilesInX), HEIGHT/7]
         self.tileBuffer = HEIGHT/self.tileSize[1]*2.5
 
-        self.tileSpeed = 7
+        self.tileSpeed = 2
         self.tileColor = 'grey12'
-        self.inLineCounter = 0
-        self.maxInLine = 3
 
         pos = [random.randint(0, self.tilesInX-1)*self.tileSize[0], -self.tileSize[1]]
-        self.tileList.append(Tile(self.screen, pos, self.tileSize, self.tileColor))
+        self.tileList.append(Tile(self.screen, pos, self.tileSize, self.tileColor, self.tileSpeed, False))
 
-        self.isDead = False
+        self.mouseButtonDown = False
     
     def generateTile(self):
         pos = []
-        if self.tileList[-1].rect.x == WIDTH-self.tileSize[0]:
-            pos.append(self.tileList[-1].rect.x + random.randint(-1, 0)*self.tileSize[0])
-    
-        elif self.tileList[-1].rect.x == 0:
-            pos.append(self.tileList[-1].rect.x + random.randint(0, 1)*self.tileSize[0])
+        size = self.tileSize[:]
 
-        else:
-            pos.append(self.tileList[-1].rect.x + random.randint(-1, 1)*self.tileSize[0])
+        pos.append(random.choice([0, 1, 2, 3])*size[0])
+        pos.append(self.tileList[-1].rect.y - self.tileList[-1].rect.height)
 
-        if pos[0] == self.tileList[-1].rect.x:
-            self.inLineCounter += 1
-            if self.inLineCounter == self.maxInLine:
-                self.generateTile()
-                self.inLineCounter = 0
+        long = False
+        if random.randint(0, 5) == 4:
+            size[1] *= 2
+            long = True
 
-        else:
-            self.inLineCounter = 0
-
-        pos.append(self.tileList[-1].rect.y - self.tileSize[1])
-        self.tileList.append(Tile(self.screen, pos, self.tileSize, self.tileColor))
-
-    def deathAnimation(self):
-        if self.isDead:
-            self.counter += 1
-            if self.counter > FPS/1.5:
-                self.__init__()
+        self.tileList.append(Tile(self.screen, pos, size, self.tileColor, self.tileSpeed, long))
 
     def tileUpdate(self):
         for tile in self.tileList:
-            tile.update(self.tileSpeed)
+            tile.update()
 
             if tile.offScreen():
                 self.tileList.remove(tile)
+
+            if self.mouseButtonDown and tile.checkClick(self.mouseClick):
+                tile.clicked = True
             
-            if tile.dead():
-                self.tileSpeed = 0
-                self.counter = 0
-                tile.color = 'red'
-                self.isDead = True
+            elif not self.mouseButtonDown:
+                tile.clicked = False
 
     def tileHandler(self):
         self.tileUpdate()
@@ -78,27 +61,20 @@ class Level:
         if len(self.tileList) < self.tileBuffer:
             self.generateTile()
 
+    def getMouseHold(self):
+        if self.mouseButtonDown:
+            self.mouseClick = pygame.mouse.get_pos()
+
     def events(self):
         for event in pygame.event.get(): 
             if event.type == pygame.QUIT:
                 self.running = False
 
-            if event.type == pygame.MOUSEBUTTONUP:
-                self.mouseClick = pygame.mouse.get_pos()  
-
-                clickedOnTile = False
-                for tile in self.tileList:
-                    if tile.clicked(self.mouseClick):
-                        clickedOnTile = True
-                        tile.color = 'green'
-
-                        tileNextIndex = 1
-                        while self.tileList[self.tileList.index(tile)+tileNextIndex].rect.x == tile.rect.x:
-                            self.tileList[self.tileList.index(tile)+tileNextIndex].color = 'green'
-                            tileNextIndex += 1
-                
-                if not clickedOnTile:
-                    self.__init__()
+            if event.type == pygame.MOUSEBUTTONDOWN: 
+                self.mouseButtonDown = True
+            
+            elif event.type == pygame.MOUSEBUTTONUP:
+                self.mouseButtonDown = False
 
     def update(self):
         self.clock.tick(FPS)
@@ -109,8 +85,8 @@ class Level:
         
         ########################################
 
+        self.getMouseHold()
         self.tileHandler()
-        self.deathAnimation()
 
         ########################################
 
