@@ -9,6 +9,9 @@ class Tile:
         self.color = color
         self.speed = speed
     
+    def clicked(self, mouseClick):
+        return self.rect.collidepoint(mouseClick)
+
     def offScreen(self):
         return self.rect.y > HEIGHT*1.5
 
