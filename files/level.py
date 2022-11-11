@@ -1,106 +1,130 @@
-import pygame, random
-from files.settings import *
 from files.tile import Tile
+from files.settings import *
+import pygame, random
 
 class Level:
     def __init__(self) -> None:
         pygame.init()
-
+        pygame.mixer.init() 
         self.screen = pygame.display.set_mode((WIDTH, HEIGHT))
         self.clock = pygame.time.Clock()
-        pygame.display.set_caption(str(round(self.clock.get_fps(), 1)))
-    
-        self.font = pygame.font.SysFont('AGENCYB.TTF', 75)
-        self.tinyFont = pygame.font.SysFont('AGENCYB.TTF', 25)
 
-        self.running = True
+        pygame.display.set_caption(f"{self.clock.get_fps()} fps")
+        self.nColumns = 4
 
-        self.singleTileSize = [
-            WIDTH/4,
-            HEIGHT/8
-        ]
-
-        self.maxNTiles = int(HEIGHT/self.singleTileSize[1]*1.75)
+        self.tilesInX = 4
         self.tileList = []
-        self.tileSpeed = 3
+        self.tileSize = [int(WIDTH/self.tilesInX), HEIGHT/7]
+        self.tileBuffer = HEIGHT/self.tileSize[1]*2.5
 
-        self.createTile()
+        self.tileSpeed = 7
+        self.tileColor = 'grey12'
+        self.inLineCounter = 0
+        self.maxInLine = 3
 
-    def createTile(self):
+        pos = [random.randint(0, self.tilesInX-1)*self.tileSize[0], -self.tileSize[1]]
+        self.tileList.append(Tile(self.screen, pos, self.tileSize, self.tileColor))
+
+        self.isDead = False
+    
+    def generateTile(self):
         pos = []
-        size = self.singleTileSize[:]
+        if self.tileList[-1].rect.x == WIDTH-self.tileSize[0]:
+            pos.append(self.tileList[-1].rect.x + random.randint(-1, 0)*self.tileSize[0])
     
-        if len(self.tileList) == 0:
-            pos = [
-                random.randint(0, 3)*self.singleTileSize[0],
-                0
-            ]
-        
+        elif self.tileList[-1].rect.x == 0:
+            pos.append(self.tileList[-1].rect.x + random.randint(0, 1)*self.tileSize[0])
+
         else:
-            lastTile = self.tileList[-1]
+            pos.append(self.tileList[-1].rect.x + random.randint(-1, 1)*self.tileSize[0])
 
-            if random.randint(1, 6) == 5:
-                size[1] *= 2
+        if pos[0] == self.tileList[-1].rect.x:
+            self.inLineCounter += 1
+            if self.inLineCounter == self.maxInLine:
+                self.generateTile()
+                self.inLineCounter = 0
 
-            if lastTile.rect.x == 0:
-                pos.append(self.tileList[-1].rect.x + self.singleTileSize[0])
-            
-            elif lastTile.rect.x == WIDTH-lastTile.rect.width:
-                pos.append(self.tileList[-1].rect.x - self.singleTileSize[0])
-
-            else:
-                pos.append(self.tileList[-1].rect.x + random.choice([-1, 1])*self.singleTileSize[0])
-            
-            pos.append(self.tileList[-1].rect.y - size[1])
-            
-        self.tileList.append(Tile(self.screen, pos, size, 'black', self.tileSpeed))
-    
-    def getTileClicked(self):
-        self.mousePressed = pygame.mouse.get_pressed()[0]
-
-        if self.mousePressed:
-            self.mousePos = pygame.mouse.get_pos()
-
-            if self.tileList[0].clicked(self.mousePos):
-                self.tileList.remove(self.tileList[0])
-        
         else:
-            self.mousePos = None
+            self.inLineCounter = 0
+
+        pos.append(self.tileList[-1].rect.y - self.tileSize[1])
+        self.tileList.append(Tile(self.screen, pos, self.tileSize, self.tileColor))
+
+    def deathAnimation(self):
+        if self.isDead:
+            self.counter += 1
+            if self.counter > FPS/1.5:
+                self.__init__()
 
     def tileUpdate(self):
+        mouseClickPos = pygame.mouse.get_pressed()[0]
+        if mouseClickPos:
+            mouseClickPos = pygame.mouse.get_pos()
+        else:
+            mouseClickPos = None
+
         for tile in self.tileList:
-            tile.update()
+            tile.update(self.tileSpeed)
 
             if tile.offScreen():
                 self.tileList.remove(tile)
+            
+            if tile.dead():
+                self.tileSpeed = 0
+                self.counter = 0
+                tile.color = 'red'
+                self.isDead = True
 
     def tileHandler(self):
         self.getTileClicked()
         self.tileUpdate()
 
-        if len(self.tileList) < self.maxNTiles:
-            self.createTile()
+        if len(self.tileList) < self.tileBuffer:
+            self.generateTile()
 
     def events(self):
         for event in pygame.event.get(): 
             if event.type == pygame.QUIT:
                 self.running = False
 
+            if event.type == pygame.MOUSEBUTTONUP:
+                self.mouseClick = pygame.mouse.get_pos()  
+
+                clickedOnTile = False
+                for tile in self.tileList:
+                    if tile.clicked(self.mouseClick):
+                        clickedOnTile = True
+                        tile.color = 'green'
+
+                        tileNextIndex = 1
+                        while self.tileList[self.tileList.index(tile)+tileNextIndex].rect.x == tile.rect.x:
+                            self.tileList[self.tileList.index(tile)+tileNextIndex].color = 'green'
+                            tileNextIndex += 1
+                
+                if not clickedOnTile:
+                    self.__init__()
+
     def update(self):
         self.clock.tick(FPS)
         self.events()
-        self.screen.fill('white')
         self.fps = self.clock.get_fps()
-        pygame.display.set_caption(str(round(self.fps)))
-        
-        ########################################
+        pygame.display.set_caption(f'{self.fps}')
+
+        self.screen.fill('white')
 
         self.tileHandler()
+        self.deathAnimation()
 
         ########################################
 
-        pygame.display.flip()    
+        pygame.display.flip()
+
+    def events(self):
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                self.running = False
 
     def run(self):
         while self.running:
             self.update()
+
